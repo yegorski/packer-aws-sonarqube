@@ -1,0 +1,40 @@
+{
+  "variables": {
+    "aws_access_key": "",
+    "aws_secret_key": "",
+    "ami_users": "{{ env `AMI_USERS` }}",
+    "root_dir": "."
+  },
+  "builders": [
+    {
+      "name": "aws",
+      "region": "us-east-1",
+      "ami_name": "Amazon Linux 2 SonarQube AMI {{ timestamp }} {{ user `environment` }}",
+      "type": "amazon-ebs",
+      "access_key": "{{user `aws_access_key`}}",
+      "secret_key": "{{user `aws_secret_key`}}",
+      "instance_type": "t3.small",
+      "ssh_username": "ec2-user",
+      "ami_users": "{{ user `ami_users` }}",
+      "source_ami_filter": {
+        "filters": {
+          "name": "amzn2-ami-hvm-*-x86_64-gp2",
+          "root-device-type": "ebs",
+          "virtualization-type": "hvm"
+        },
+        "owners": ["amazon"],
+        "most_recent": true
+      },
+      "tags": {
+        "Name": "Amazon Linux 2 SonarQube AMI {{ timestamp }}"
+      }
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "ansible",
+      "playbook_file": "{{ user `root_dir` }}/ansible/site.yml",
+      "user": "ec2-user"
+    }
+  ]
+}

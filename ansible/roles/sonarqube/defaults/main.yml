@@ -1,0 +1,21 @@
+---
+# Sonar
+sonar_tmp_dir: /root
+sonar_workdir: /usr/local/sonar
+
+sonar_version: 7.4  # latest as of 12/13/2018
+sonar_download_url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonar_version }}.zip"
+sonar_version_directory: "sonarqube-{{ sonar_version }}"
+
+# MySQL
+sonar_mysql_username: sonar
+sonar_mysql_password: "q]797F[2WaJt&J@cn3g*"
+
+sonar_mysql_host: localhost
+sonar_mysql_port: "3306"
+sonar_mysql_database: sonar
+
+sonar_mysql_allowed_hosts:
+  - "127.0.0.1"
+  - "::1"
+  - "localhost"

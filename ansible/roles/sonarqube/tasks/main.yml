@@ -1,0 +1,105 @@
+---
+- name: Ensure Sonar group
+  group:
+    name: sonar
+
+- name: Ensure Sonar user
+  user:
+    name: sonar
+    group: sonar
+    createhome: false
+    system: true
+
+- name: Create a database for Sonar
+  mysql_db:
+    name: "{{ sonar_mysql_database }}"
+    state: present
+
+- name: Create Sonar database admin
+  mysql_user:
+    name: "{{ sonar_mysql_username }}"
+    host: "{{ item }}"
+    priv: "{{ sonar_mysql_database }}.*:ALL"
+    password: "{{ sonar_mysql_password }}"
+  with_items: "{{ sonar_mysql_allowed_hosts }}"
+
+- name: Download Sonar
+  get_url:
+    url: "{{ sonar_download_url }}"
+    dest: "{{ sonar_tmp_dir }}/{{ sonar_version_directory }}.zip"
+    validate_certs: true
+
+- name: Install unzip utility
+  yum:
+    name: unzip
+
+- name: Unzip Sonar
+  unarchive:
+    src: "{{ sonar_tmp_dir }}/{{ sonar_version_directory }}.zip"
+    dest: /usr/local/
+    copy: false
+    creates: "{{ sonar_workdir }}/COPYING"
+
+- name: Move Sonar into /usr/local
+  command: >
+    mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
+    creates={{ sonar_workdir }}/COPYING
+
+- name: Configure SonarQube JDBC settings for MySQL
+  lineinfile:
+    dest: "{{ sonar_workdir }}/conf/sonar.properties"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - regexp: "^sonar.jdbc.username"
+      line: "sonar.jdbc.username={{ sonar_mysql_username }}"
+    - regexp: "^sonar.jdbc.password"
+      line: "sonar.jdbc.password={{ sonar_mysql_password }}"
+    - regexp: "^sonar.jdbc.url"
+      line: "sonar.jdbc.url=jdbc:mysql://{{ sonar_mysql_host }}:{{ sonar_mysql_port }}/{{ sonar_mysql_database }}?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&useConfigs=maxPerformance"
+    - regexp: "^sonar.web.context"
+      line: "sonar.web.context=/"
+
+- name: Symlink sonar bin
+  file:
+    src: "{{ sonar_workdir }}/bin/linux-x86-64/sonar.sh"
+    dest: /usr/bin/sonar
+    state: link
+    owner: sonar
+    group: sonar
+  register: sonar_symlink
+
+- name: Add sonar as init script for service management
+  file:
+    src: "{{ sonar_workdir }}/bin/linux-x86-64/sonar.sh"
+    dest: /etc/init.d/sonar
+    state: link
+    owner: sonar
+    group: sonar
+
+- name: Run as sonar user
+  lineinfile:
+    dest: /usr/bin/sonar
+    regexp: "#RUN_AS_USER="
+    line: "RUN_AS_USER=sonar"
+
+- name: Set Sonar user as owner
+  command: "chown -R sonar:sonar {{ sonar_workdir }}"
+  changed_when: false
+
+- name: Restart and enable Sonar service
+  service:
+    name: sonar
+    state: restarted
+    enabled: true
+
+- name: Validate SonarQube is running
+  uri:
+    url: http://localhost:9000
+    status_code: 200
+    follow_redirects: all
+    validate_certs: false
+  retries: 20
+  delay: 3
+  register: response
+  until: response.status == 200
